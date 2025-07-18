@@ -16,8 +16,6 @@ trimFlag=False #Trim to UC boundary
 def strutParams(strutPosition,L):
     x,y,z=float(strutPosition[0]+L),float(strutPosition[1]+L),float(strutPosition[2]+L) #x,y,z coordinate
     xuc,yuc,zuc = int(round((x+L)/(2*L))), int(round((y+L)/(2*L))), int(round((z+L)/(2*L))) #x,y,z unit cell index
-
-    from random import choice
     strutRadius = 2
     strutRevolutions = 3/4
     return (float(strutRadius),float(strutRevolutions))
@@ -26,11 +24,10 @@ def strutParams(strutPosition,L):
 
 curves = muc.wovenLattice(latName,unitCell/2,strutParams,sampling,cellNum,doubleNetwork=doubleNetworkFlag,trim=trimFlag,defectPoints=[])
 
-#muc.plotCurves(curves,cellNum)
+muc.plotCurves(curves,cellNum)
 muc.exportCSV(curves,cellNum,unitCell/2,doubleNetwork=doubleNetworkFlag,trim=trimFlag)
-muc.saveBeamOrigins(curves)
-#muc.exportOneCSV(curves,cellNum,unitCell/2)
-# muc.save_piped_stl(curves,1,10,filename='woven_mesh.stl',eccentricity=1) #fiber radius, number of points in circular cross-section
+muc.exportOneCSV(curves,cellNum,unitCell/2)
+muc.save_piped_stl(curves,1,10,filename='woven_mesh.stl',eccentricity=1) #fiber radius, number of points in circular cross-section
 
 quit()
 

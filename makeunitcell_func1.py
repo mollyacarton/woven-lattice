@@ -3,17 +3,18 @@
 
 #Woven lattice module
 #
-import json
+
 import numpy as np
 import scipy.spatial
 import scipy.interpolate
 import matplotlib.pyplot as plt
 import math
+from json import dumps
 from itertools import combinations,  product 
 
 
 import random
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 import sys
 
 
@@ -142,7 +143,6 @@ def polarArray(points,axisVector,numberOfRepeats):
 	Polar array of points about axisVector, evenly distributed a number of times by numberOfRepeats
 	"""
 	arrayPts = np.zeros((numberOfRepeats*points.shape[0],points.shape[1]))
-	#np.repeat(points[:,:,np.newaxis],numberOfRepeats,axis=2)
 	angle = 2*np.pi/float(numberOfRepeats)
 	rot = rotationMatrixAboutVector(axisVector,angle)
 	for n in range(numberOfRepeats):
@@ -183,12 +183,7 @@ def rotationMatrixVectorToVector(vector,targetVector):
 
 def findNeighbors(points,jointRadius):
 	"""
-	#find nearest neighbor point pairs using convex hull as delauney triangulation
-		#triangulation, stupid
-	#sv = scipy.spatial.SphericalVoronoi(points, radius=jointRadius)
-	# scipy has permanently enabled the qhull 'Qt' option which provides only the triangulated hull.
-	# so we have to sort to find the non-triangular facets. 
-	# with advice from: https://github.com/scipy/scipy/issues/10944
+	#Find nearest neighbor point pairs using convex hull as delauney triangulation
 	"""
 
 	try:
@@ -202,10 +197,8 @@ def findNeighbors(points,jointRadius):
 		# coplanarFacets = hull.simplices[uniqueFacetIndices==n]
 		for facet in hull.simplices[uniqueFacetIndices==n]:
 			mergedFacetPairs[n] += list(combinations(facet,2))
-
 		values, inverse, counts = np.unique(mergedFacetPairs[n], axis=0, return_inverse=1, return_counts=1)
 		mergedFacetPairs[n] = values[np.where(counts==1)[0]]
-
 	pairs = np.concatenate(mergedFacetPairs, axis=0)
 	pairs = np.unique(np.sort(np.array(pairs)),axis=0)
 	return(pairs)
@@ -246,8 +239,6 @@ def findCenterPt(pair,ptRadii):
 def rightSphericalTriangle(a,c):
 	"""
 	calculate distance and angle of tangent line between a point and a circle on a unit sphere
-	##error check: make sure it's a unit sphere!
-	https://www.gutenberg.org/files/19770/19770-pdf.pdf
 	# print(' helix rad = ', a,' angle = ',c)
 	returns: radius of circle, tangent distance, distance to center of circle,...
 	# angle from center of circle to tangent, angle from point to tangent, right angle
@@ -262,7 +253,7 @@ def rightSphericalTriangle(a,c):
 		else:
 			# raise ValueError('Impossible joint:'+ 'a and c are' + str(a)+ '' + str(c))
 			error_message = {'error': True, 'message': f'Node error in right spherical triangles: a and c are {a}, {c}'}
-			print(json.dumps(error_message), file=sys.stderr)
+			print(dumps(error_message), file=sys.stderr)
 			quit()
 	#TODO: fix the sphere checking that causes this error
 	try:
@@ -294,41 +285,26 @@ def findCenterTangent(centerPtNorm,helixPtNorm,helixRadiusNorm):
 
 	helixRadiusOnSphere = np.arcsin(helixRadiusNorm) #go from straight path to arc length 2*np.arcsin(helixRadiusNorm/2)
 	angle = angleBetweenVectors(centerPtNorm,helixPtNorm) #np.arccos(np.dot(centerPtNorm,helixPtNorm)) #path length = angle*r = subtended angle on a unit sphere
-
 	rightTri = rightSphericalTriangle(helixRadiusOnSphere,angle)#(helixRadiusNorm,angle)
-
 	tangentOffAngle = rightTri[3]
 	tangentAngle = rightTri[4] #= angle 'B': angle from centerline to tangent point about helix center #CORRECTED - 4 not 3, B not A!
 	tangentArcLength = rightTri[1] # = angle in radians on a unit sphere
 	tangentChordLength = 2*np.sin(tangentArcLength/2) # chord length = 2*r*sin(subtended angle/2)
-
-
-	tangentVec = centerPtNorm-helixPtNorm #this is the 'radius' to the center
-
-	#print(str(tangentChordLength)+' versus '+str(np.linalg.norm(tangentVec)))
-		#TODO: check why this is off by up to O(.01) !
-
+	tangentVec = centerPtNorm-helixPtNorm
 	tangentLocation = scipy.spatial.geometric_slerp(helixPtNorm,centerPtNorm,helixRadiusOnSphere/angle)
 	tangentLocation = axisAngleRotate(tangentLocation,helixPtNorm,tangentAngle) #and rotate it about the helix axis
 	tangentLocation = tangentLocation/np.linalg.norm(tangentLocation) #normalize to sphere surface
-
 	return tangentAngle,tangentOffAngle, tangentArcLength,np.array(tangentLocation)
-
-
-
 
 def checkHelixOverlap(points,ptRadii):
 	"""
 	Check overlap of helix base circles for node sphere sizing
 	"""
 
-	#normalized radii
-	# print(points[0,:],points[1,:])
-	# theta = angleBetweenVectors(points[:,0],points[:,1]) # = arclength between the two points
 	theta = angleBetweenVectors(points[0,:],points[1,:])
 	arcRadiusSum = ptRadii[0]+ptRadii[1] #np.arcsin(ptRadii[0])+np.arcsin(ptRadii[1]) # = sum of arclengths of the two helix circles
 	overlap = arcRadiusSum - theta
-	threshold = 1e-0 #10e-1
+	threshold = 1e-0
 	return(overlap > -threshold, overlap)
 
 
@@ -355,10 +331,7 @@ def makeBaseHelix(helixRadius,strutLength,helixAngle,numberOfPoints,zOffset):
 ####################################################################################################################
 # Lattice functions
 ####################################################################################################################
-# Neumann’s Principle: The symmetry elements of any physical
-# property must include the symmetry elements of the point group of
-# the crystal. The physical property may be more symmetric, but not
-# less
+
 
 
 
@@ -389,17 +362,14 @@ def wovenUnitCell(unitPts,bars,sphereRadius,ptRadii,strutLengths,revolutions,hel
 	barListByPoint = [[] for _ in range(numPts)] #list of neighbor points by point [this makes shit all sense]
 	# starts with relative point radii; increases sphere radius to keep them from overlapping
 
-	#TODO: fix this sphere adjustment function
 	if any(sphereRadius<sphereRadius*unitRadii):
 		sphereRadius0 = float(sphereRadius)
 		sphereRadius=np.amax(sphereRadius*unitRadii)+.01
-		# print('Adjusting sphere radius to min helix: ', sphereRadius)
 		unitRadii = unitRadii*(sphereRadius0/sphereRadius)
 	for n in range(numPairs):
 		sphereRadius0 = float(sphereRadius)
 		isOverlapping,overlap = checkHelixOverlap(unitPts[pairs[n,:]],unitRadii[pairs[n,:]])
 		if isOverlapping:
-			# print('overlap', overlap)
 			overlap = 0 if overlap < 0 else overlap
 			sphereRadius1 = sphereRadius
 			sphereRadius += (np.abs(overlap)*sphereRadius)/(2*np.pi) + sphereRadius*.05#(2*np.pi) + .01
@@ -436,7 +406,8 @@ def wovenUnitCell(unitPts,bars,sphereRadius,ptRadii,strutLengths,revolutions,hel
 		neighborListByPoint[start].append(end) #neighboring unit point indices by unit point index
 		neighborListByPoint[end].append(start)
 
-	
+		#TODO: ## future. adjust to even out strands ##
+		evennessRatio = .8 #how strongly to adjust them
 
 	# neighborListByPoint,edgeListByPoint = sortNeighbors(numPts,pairs)
 	return(sphereRadius,neighborTangentList,neighborTangentAngleList,neighborCenterList,
@@ -516,11 +487,8 @@ def makeRotatedHelices(bar,point,sampling,node1,node2):#numberOfPoints,node1,nod
 	#TODO: make sure this fixes the extra rev error. it does not
 	comp=[signedAngleBetweenVectors(val,helixPointsComp1[0],point)%(2*np.pi) for val in helixPointsComp2]
 	complh=[signedAngleBetweenVectors(helixPointsComp1[0],val,point)%(2*np.pi) for val in helixPointsComp2]
-	# comp=[signedAngleBetweenVectors(val,helixPointsComp1[0],point) for val in helixPointsComp2]
 	minind = np.argmin(comp) if min(comp)<min(complh) else np.argmin(complh) #find lowest shift among right and left handed
 	helixPoints2order = np.roll(np.argsort(comp),-list(np.argsort(comp)).index(minind)) #sort points to start at the lowest shift
-	# helixPointsComp2= helixPointsComp2[helixPoints2order] #closest matched, either right hand or left
-
 
 	testfig = False
 	if testfig:
@@ -549,8 +517,7 @@ def makeRotatedHelices(bar,point,sampling,node1,node2):#numberOfPoints,node1,nod
 
 	helixPoints1 = helixPoints1[helixPoints1order] #reorder to right-handed
 	helixPoints2 = helixPoints2[helixPoints2order] #reorder to right-handed, matching to nearest helixPoint1
-	#TODO: this matches helixPoints1[0] to the nearest helixPoint2 with a positive right-handed angle;
-	# make it match to the nearest in either direction? yes. important for tetrakai, at least. 3/28/24
+
 
 	bar.nodeEdges = [[node1.edgeListByPoint[idxAtNode1][n] for n in helixPoints1order],
 					 [node2.edgeListByPoint[idxAtNode2][n] for n in helixPoints2order]]
@@ -561,10 +528,6 @@ def makeRotatedHelices(bar,point,sampling,node1,node2):#numberOfPoints,node1,nod
 	for n in range(np.shape(helixAngles)[0]):
 		# print('pointcomp',helixPoints1[n]-point,helixPoints2[n]+point)
 		helixAngles[n] = helixAngles[n] + compAngles[n]
-	#
-	# if True in [abs(a-(revolutions)*2*np.pi) >= maxShift for a in helixAngles]:
-	# 	print(helixAngles, wholerevs, shift, compAngles, [abs(a-(revolutions)*2*np.pi) for a in helixAngles], maxShift)
-	# 	raise ValueError('revolutions out of tolerance')
 
 
 	helixLength = (scipy.spatial.distance.euclidean(bar.end,bar.start)
@@ -610,18 +573,7 @@ def wovenJoint(node, bars, revolutions,sampling): #helices
 	pairs = node.pairs
 	numPairs = np.shape(pairs)[0]
 	helixAngles = [np.arctan2(node.strutLengths[pt], (2.0 * np.pi * revolutions[pt] * node.ptRadii[pt])) for pt in range(node.unitPts.shape[0])]
-	# pitch angle = atan2(pitch, pi*d)
-	# print(helixAngles)
-	# helixAngles2 = [np.arctan2(pitchParams[pt],np.pi*node.ptRadii[pt]) for pt in range(node.unitPts.shape[0])]
-	# print(helixAngles2)
 
-	#save off the pitch for the helices
-
-
-	# s = list(linspace(0, 1, curvePtNumber))
-	# outputPath = np.zeros((curvePtNumber,3,numPairs))
-
-	# helicesListByPair = [[] for _ in range(numPairs)]
 	neighborsListByPair = [[] for _ in range(numPairs)]
 	helixAnglesByPair = [[] for _ in range(numPairs)]
 
@@ -642,31 +594,22 @@ def wovenJoint(node, bars, revolutions,sampling): #helices
 		except:
 			helixLen = bars[n].strutLength - 2*np.sqrt(node.sphereRadius**2-bars[n].barRadius**2)
 
-		#TODO: fix the helix angles connection!
 		edgeAngles = np.arctan2(helixLen, (1 * np.pi * edgeRevs * node.ptRadii[n])) # (2 * np.pi * edgeRevs * node.ptRadii[n]))
-		#node.strutLengths[n], (2.0 * np.pi * edgeRevs * node.ptRadii[n])) #but this changes
-
 
 		# for each neighboring point, find the connecting strand between the neighbor-path center point and the bottom of the helix
 		for m in range(connectivity):
 			currentPair = referencePairs[m]
 			neighborsListByPair[currentPair].append(neighborArrays[m,:])
-			# helixEndsListByPair[currentPair].append(helix1[0,:])
 			helixAnglesByPair[currentPair].append(edgeAngles[m]) #helixAngles[m])
-			# instead of neighborarrays, append the right part of the helix: helix[m,helixEnd,:]?
 
 
 	numPairs = np.shape(pairs)[0]
 	outputPath=[]
 	for n in range(numPairs):
-		edge = pairs[n,:] 
-		# print(node.pointIdxs[edge[0]],node.pointIdxs[edge[1]])
+		edge = pairs[n,:]
 		edgePoints = cartesianToSpherical(np.array(neighborsListByPair[n]))
 		edgeAngles = np.array(helixAnglesByPair[n])
-		edgeNeighbors = neighborsListByPair[n] #this 
-
-		#TODO: fix sampling formulation
-		# sampling = 1
+		edgeNeighbors = neighborsListByPair[n] #this
 		tanPathLength = node.sphereRadius*angleBetweenVectors(edgeNeighbors[0][:],edgeNeighbors[1][:])
 		curvePtNumber = math.floor(tanPathLength/sampling)+2 #+endpoints
 		s = list(linspace(0,1,curvePtNumber))
@@ -677,7 +620,6 @@ def wovenJoint(node, bars, revolutions,sampling): #helices
 		for i in range(curvePtNumber):
 			interpolatedRadii[:,i] = bp(s[i])
 		tangentPath[:,0] = interpolatedRadii
-		# outputPath[:,:,n] = sphericalToCartesian(tangentPath)*node.sphereRadius + node.centerPoint #edgeHelixConnectedPath
 		outputPath.append(sphericalToCartesian(tangentPath)*node.sphereRadius+node.centerPoint)
 	return(outputPath)
 
@@ -710,24 +652,18 @@ def makeLattice(latticeTransformationVectors,originalLatticePoints,originalLatti
 	originsByPoint = [[(0,0,0),ind] for ind,point in enumerate(originalLatticePoints.copy())]
 
 	runningTotal = len(allLatticePoints)
-	# origins = list(product(range(-1,latticeCells[0]+1),range(-1,latticeCells[1]+1),range(-1,latticeCells[2]+1)))
 	originsInLat = list(product(range(latticeCells[0]),range(latticeCells[1]),range(latticeCells[2])))
 	for origin in list(product(range(-1,latticeCells[0]+1),range(-1,latticeCells[1]+1),range(-1,latticeCells[2]+1))):
 		if origin == (0,0,0):
 			continue
 		latticeBarsAtOrigin = [[shiftCell(bar[0],latticeTransformationVectors,origin),
 			shiftCell(bar[1],latticeTransformationVectors,origin)] for bar in originalLatticeBarPoints]
-		# allLatticeBarPoints.extend([[bar[0]+runningTotal,bar[1]+runningTotal] for bar in originalLatticeBars])
 		allLatticeBarPoints.extend(latticeBarsAtOrigin)
 		unitCellAtOrigin = [shiftCell(point,latticeTransformationVectors,origin) for point in originalLatticePoints]
 		allLatticePoints.extend(unitCellAtOrigin)
-		# isInLattice = int(not (-1 in origin or
-		# 					   origin[0]>=latticeCells[0] or origin[1]>=latticeCells[1] or origin[2]>=latticeCells[2]))
 		isInLattice = int(origin in originsInLat)
 		inLattice.extend([isInLattice for point in unitCellAtOrigin])
 		originsByPoint.extend([[origin,pind] for pind,pt in enumerate(unitCellAtOrigin)])
-
-		# print(unitCellAtOrigin,inLattice)
 		print(origin)
 		runningTotal = len(allLatticePoints)
 
@@ -736,13 +672,12 @@ def makeLattice(latticeTransformationVectors,originalLatticePoints,originalLatti
 	# 	first. and/or, make allLatticeBars and allLatticePoints sets.
 
 	allLatticePoints,idxs,inv = np.unique(allLatticePoints,axis=0,return_index=True,return_inverse=True) #okay
-	# inLattice = np.array(inLattice)[idxs]
 	inLatticeCompact=[[] for pt in allLatticePoints]
 	originsCompact=[[] for pt in allLatticePoints]
 	for id in range(len(allLatticePoints)):
 		inLatticeCompact[id]=np.array(inLattice)[np.where(inv==id)[0]].any() #because otherwise points get sorted away
 		originsCompact[id] = [originsByPoint[val] for val in np.where(inv==id)[0]]
-	allLatticeBarPoints = np.unique(allLatticeBarPoints,axis=0)  #np.unique(np.sort(allLatticeBarPoints,axis=1),axis=0)  #okay
+	allLatticeBarPoints = np.unique(allLatticeBarPoints,axis=0)
 
 
 	#fill in list of bars in index form:
@@ -801,9 +736,7 @@ def sortStrands(nodes,bars):
 			if nodes[node].bars[pair[direction]] in barlist: #if the bar going from the start of the pair exists
 				thisBar = barPair[direction]
 				while bars[thisBar].helix is not None: #while the current bar has a helix on it
-					curve.bars.append(thisBar) #TODO: insert at the correct end instead of append
-
-					# thisBar=barPair[otherEnd]
+					curve.bars.append(thisBar)
 					thisNode= bars[thisBar].nodeIdxs.index(node) #idx of starting node@bar #i.e. does it flip or not
 					thatNode= int(not(thisNode)) #the other idx, of course
 					edgeLocOnBar = bars[thisBar].nodeEdges[thisNode].index(idx)  #idx of strand/edge on starting node
@@ -825,21 +758,17 @@ def sortStrands(nodes,bars):
 						curve.addPath(nodes[node].path[idx][:,:],not thatBar==direction,not direction)
 					else:
 						break
-					# else:
-					# 	pass
 				curves.append(curve)
 	return curves
 
 
 def saveBeamOrigins(curves,filename='beams_origin.csv'):
 	import csv
-	from datetime import date
-	import os
 	with open(filename,'w',newline='') as f:
 		f.close()
 	for index,curve in enumerate([curve for curve in curves if curve is not None]):
 		if curve.isBeam:
-			with open(filename,'a',newline='') as f:  #b') as f:
+			with open(filename,'a',newline='') as f:
 				writer=csv.writer(f)
 				writer.writerows([["%.4f"%p for p in point]+["%d"%c for c in curve.origin[0]] for point in curve.path])
 	print('Beams saved to ', filename)
@@ -1012,62 +941,62 @@ def save_piped_stl(curves,rad,pts,lengthtol=[],filename='woven_mesh.stl',eccentr
 ###################################################
 	#Plotly figure
 
-
-def plotly_plot_curves(curves,L):
-	fig=go.Figure()
-	for index, curve in enumerate([curve for curve in curves if curve is not None]):
-		path = np.array(curve.path)
-		x, y, z = path[:,0], path[:,1], path[:,2]
-
-		fig.add_trace(go.Scatter3d(
-			x=x+L, y=y+L, z=z+L,
-			mode='lines',
-			name=f'Curve {index}'
-		))
-
-	fig.update_layout(
-		width=1000,
-		height=600,
-		scene=dict(
-			xaxis=dict(
-				backgroundcolor="#262626",
-				color="#626262",  # Set the axis and label color
-				gridcolor="#626262",  # Set the grid color if grid is visible
-				showgrid=True,
-				zeroline=True
-			),
-			yaxis=dict(
-				backgroundcolor="#262626",
-				color="#626262",  # Set the axis and label color
-				gridcolor="#626262",  # Set the grid color if grid is visible
-				showgrid=True,
-				zeroline=True
-			),
-			zaxis=dict(
-				backgroundcolor="#262626",
-				color="#626262",  # Set the axis and label color
-				gridcolor="#626262",  # Set the grid color if grid is visible
-				showgrid=True,
-				zeroline=True
-			),
-			xaxis_title='X Axis',
-			yaxis_title='Y Axis',
-			zaxis_title='Z Axis'
-		),
-		plot_bgcolor="#262626",
-		paper_bgcolor="#262626",
-		legend=dict(
-			font=dict(
-				color="#626262"  # Set legend text color
-			)
-		)
-	)
-	html_filename = "3d_plot.html"
-	fig.write_html(html_filename)
-	return(fig,html_filename)
-		##visibleDeprecationWarning
-
-
+#
+# def plotly_plot_curves(curves,L):
+# 	fig=go.Figure()
+# 	for index, curve in enumerate([curve for curve in curves if curve is not None]):
+# 		path = np.array(curve.path)
+# 		x, y, z = path[:,0], path[:,1], path[:,2]
+#
+# 		fig.add_trace(go.Scatter3d(
+# 			x=x+L, y=y+L, z=z+L,
+# 			mode='lines',
+# 			name=f'Curve {index}'
+# 		))
+# 
+# 	fig.update_layout(
+# 		width=1000,
+# 		height=600,
+# 		scene=dict(
+# 			xaxis=dict(
+# 				backgroundcolor="#262626",
+# 				color="#626262",  # Set the axis and label color
+# 				gridcolor="#626262",  # Set the grid color if grid is visible
+# 				showgrid=True,
+# 				zeroline=True
+# 			),
+# 			yaxis=dict(
+# 				backgroundcolor="#262626",
+# 				color="#626262",  # Set the axis and label color
+# 				gridcolor="#626262",  # Set the grid color if grid is visible
+# 				showgrid=True,
+# 				zeroline=True
+# 			),
+# 			zaxis=dict(
+# 				backgroundcolor="#262626",
+# 				color="#626262",  # Set the axis and label color
+# 				gridcolor="#626262",  # Set the grid color if grid is visible
+# 				showgrid=True,
+# 				zeroline=True
+# 			),
+# 			xaxis_title='X Axis',
+# 			yaxis_title='Y Axis',
+# 			zaxis_title='Z Axis'
+# 		),
+# 		plot_bgcolor="#262626",
+# 		paper_bgcolor="#262626",
+# 		legend=dict(
+# 			font=dict(
+# 				color="#626262"  # Set legend text color
+# 			)
+# 		)
+# 	)
+# 	html_filename = "3d_plot.html"
+# 	fig.write_html(html_filename)
+# 	return(fig,html_filename)
+# 		##visibleDeprecationWarning
+#
+#
 
 ####################################################################################################################
 # Classes
@@ -1088,11 +1017,7 @@ class Lattice:
 	def __repr__(self):
 		cl = self.__class__.__name__
 		return f'{cl}({self.name},{self.latticeTransformationVectors},{self.baseLatticePoints},{self.baseLatticeBars})'
-	# def scale(self,L):
-	# 	self.scaledVectors = [[L*v[0],v[1]] for v in self.latticeTransformationVectors]
-	# 	self.scaledPoints = L*np.array(self.baseLatticePoints)
 	def make(self,latticeCells,L):
-		# scale(L)
 		self.scaledVectors = [[L*v[0],v[1]] for v in self.latticeTransformationVectors]
 		self.scaledPoints = L*np.array(self.baseLatticePoints)
 		latticePoints,latticeBarPoints,latticeBars,inLattice,originsByPoint=makeLattice(self.scaledVectors,
@@ -1272,38 +1197,36 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 								  [4,6],[4,7],[4,8],[4,12],
 								  [5,9],[5,10],[5,11],[5,13],])
 
-	# [[0,3],[0,1],[1,5],[3,5],[3,4],[5,7],[1,6],[0,2],[4,7],[7,6],[6,2],[2,4]])
-
 	np.seterr(all='raise')
 
 
 
 
 	dualBeams = False #future: for automating the dual-type double network
-	packageBeams = True #put all beams in a file called beams.csv
+	packageBeams = True #put all beams in a file called beams.csv, instead of listing them as 2-point curves
 	# trim =  True #clip to unit cell; bad for ucs with beams along edge (cubic, tetrakai)
 	# defectList=[]
-	defectList = [(0,0,0),(2,0,0),(4,0,0),(6,0,0),(8,0,0),(10,0,0),(12,0,0),(14,0,0),(16,0,0),
-				  (1,0,1),(3,0,1),(5,0,1),(7,0,1),(9,0,1),(11,0,1),(13,0,1),(15,0,1),(17,0,1),
-				  (0,0,2),(2,0,2),(4,0,2),(6,0,2),(8,0,2),(10,0,2),(12,0,2),(14,0,2),(16,0,2),
-				  (1,0,3),(3,0,3),(5,0,3),(7,0,3),(9,0,3),(11,0,3),(13,0,3),(15,0,3),(17,0,3),
-				  (0,0,4),(2,0,4),(4,0,4),(6,0,4),(8,0,4),(10,0,4),(12,0,4),(14,0,4),(16,0,4),
-				  (1,1,0),(3,1,0),(5,1,0),(7,1,0),(9,1,0),(11,1,0),(13,1,0),(15,1,0),(17,1,0),
-				  (0,1,1),(2,1,1),(4,1,1), (6, 1, 1),(8, 1, 1),(10, 1, 1),(12, 1, 1), (14, 1, 1),(16,1,1),
-				  (1,1,2),(3,1,2),(5,1,2),(7, 1, 2),(9, 1, 2),(11, 1, 2),(13, 1, 2),(15, 1, 2),
-				  (0,1,3),(2,1,3),(4,1,3),(6, 1, 3),(8, 1, 3),(10, 1, 3),(12, 1, 3),(14, 1, 3),
-				  (1,1,4),(3,1,4),(5,1,4),(7, 1, 4),(9, 1, 4),(11, 1, 4),(13, 1, 4),(15, 1, 4),
-				  (0,2,0),(2,2,0),(4,2,0),(6, 2, 0),(8, 2, 0),(10, 2, 0),(12, 2, 0),(14, 2, 0),(16, 2, 0),
-				  (1,2,1),(3,2,1),(5,2,1),(7, 2, 1),(9, 2, 1),(11, 2, 1),(13, 2, 1),(15, 2, 1),
-				  (0,2,2),(2,2,2),(4,2,2),(6, 2, 2),(8, 2, 2),(10, 2, 2),(12, 2, 2),(14, 2, 2),(16, 2, 2),
-				  (1,2,3),(3,2,3),(5,2,3),(7, 2, 3),(9, 2, 3),(11, 2, 3),(13, 2, 3),(15, 2, 3),
-				  (0,2,4),(2,2,4),(4,2,4),(6, 2, 4),(8, 2, 4),(10, 2, 4),(12, 2, 4),(14, 2, 4),(16, 2, 4),
-				  (1,3,0),(3,3,0),(5,3,0),(7, 3, 0),(9, 3, 0),(11, 3, 0),(13, 3, 0),(15, 3, 0),
-				  (0,3,1),(2,3,1),(4,3,1),(6, 3, 1),(8, 3, 1),(10, 3, 1),(12, 3, 1),(14, 3, 1),(16, 3, 1),
-				  (1,3,2),(3,3,2),(5,3,2),(7, 3, 2),(9, 3, 2),(11, 3, 2),(13, 3, 2),(15, 3, 2),
-				  (0,3,3),(2,3,3),(4,3,3),(6, 3, 3),(8, 3, 3),(10, 3, 3),(12, 3, 3),(14, 3, 3),(16, 3, 3),
-				  (1,3,4),(3,3,4),(5,3,4),(7, 3, 4),(9, 3, 4),(11, 3, 4),(13, 3, 4),(15, 3, 4),
-				  ]
+	# defectList = [(0,0,0),(2,0,0),(4,0,0),(6,0,0),(8,0,0),(10,0,0),(12,0,0),(14,0,0),(16,0,0),
+	# 			  (1,0,1),(3,0,1),(5,0,1),(7,0,1),(9,0,1),(11,0,1),(13,0,1),(15,0,1),(17,0,1),
+	# 			  (0,0,2),(2,0,2),(4,0,2),(6,0,2),(8,0,2),(10,0,2),(12,0,2),(14,0,2),(16,0,2),
+	# 			  (1,0,3),(3,0,3),(5,0,3),(7,0,3),(9,0,3),(11,0,3),(13,0,3),(15,0,3),(17,0,3),
+	# 			  (0,0,4),(2,0,4),(4,0,4),(6,0,4),(8,0,4),(10,0,4),(12,0,4),(14,0,4),(16,0,4),
+	# 			  (1,1,0),(3,1,0),(5,1,0),(7,1,0),(9,1,0),(11,1,0),(13,1,0),(15,1,0),(17,1,0),
+	# 			  (0,1,1),(2,1,1),(4,1,1), (6, 1, 1),(8, 1, 1),(10, 1, 1),(12, 1, 1), (14, 1, 1),(16,1,1),
+	# 			  (1,1,2),(3,1,2),(5,1,2),(7, 1, 2),(9, 1, 2),(11, 1, 2),(13, 1, 2),(15, 1, 2),
+	# 			  (0,1,3),(2,1,3),(4,1,3),(6, 1, 3),(8, 1, 3),(10, 1, 3),(12, 1, 3),(14, 1, 3),
+	# 			  (1,1,4),(3,1,4),(5,1,4),(7, 1, 4),(9, 1, 4),(11, 1, 4),(13, 1, 4),(15, 1, 4),
+	# 			  (0,2,0),(2,2,0),(4,2,0),(6, 2, 0),(8, 2, 0),(10, 2, 0),(12, 2, 0),(14, 2, 0),(16, 2, 0),
+	# 			  (1,2,1),(3,2,1),(5,2,1),(7, 2, 1),(9, 2, 1),(11, 2, 1),(13, 2, 1),(15, 2, 1),
+	# 			  (0,2,2),(2,2,2),(4,2,2),(6, 2, 2),(8, 2, 2),(10, 2, 2),(12, 2, 2),(14, 2, 2),(16, 2, 2),
+	# 			  (1,2,3),(3,2,3),(5,2,3),(7, 2, 3),(9, 2, 3),(11, 2, 3),(13, 2, 3),(15, 2, 3),
+	# 			  (0,2,4),(2,2,4),(4,2,4),(6, 2, 4),(8, 2, 4),(10, 2, 4),(12, 2, 4),(14, 2, 4),(16, 2, 4),
+	# 			  (1,3,0),(3,3,0),(5,3,0),(7, 3, 0),(9, 3, 0),(11, 3, 0),(13, 3, 0),(15, 3, 0),
+	# 			  (0,3,1),(2,3,1),(4,3,1),(6, 3, 1),(8, 3, 1),(10, 3, 1),(12, 3, 1),(14, 3, 1),(16, 3, 1),
+	# 			  (1,3,2),(3,3,2),(5,3,2),(7, 3, 2),(9, 3, 2),(11, 3, 2),(13, 3, 2),(15, 3, 2),
+	# 			  (0,3,3),(2,3,3),(4,3,3),(6, 3, 3),(8, 3, 3),(10, 3, 3),(12, 3, 3),(14, 3, 3),(16, 3, 3),
+	# 			  (1,3,4),(3,3,4),(5,3,4),(7, 3, 4),(9, 3, 4),(11, 3, 4),(13, 3, 4),(15, 3, 4),
+	# 			  ]
 
 
 	# defectPoints = []#[0,2]#[8] #[0,2] for octa # [8] for bcc
@@ -1320,15 +1243,9 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 
 	notch=False
 	if notch:
-		# removeCells ={(15,0,2),(15,1,2),(14,0,2),(14,1,2),(13,0,2),(13,1,2)}
-		# borderCells = {(15,0,3),(15,0,1),(15,1,3),(15,1,1),
-		# 			   (14,0,3),(14,0,1),(14,1,3),(14,1,1),
-		# 			   (13,0,3),(13,0,1),(13,1,3),(13,1,1)}
-		# 			   (13,0,3),(13,0,1),(13,1,3),(13,1,1)}
 		removeCells ={(0,0,2),(0,1,2),(0,2,2),(1,0,2),(1,1,2),(1,2,2)}#,(2,0,2),(2,1,2),(2,2,2)}
 		borderCells = {(0,0,3),(0,0,1),(0,1,3),(0,1,1),(0,2,3),(0,2,1),
 					   (1,0,3),(1,0,1),(1,1,3),(1,1,1),(1,2,3),(1,2,1)}
-					   #(2,0,3),(2,0,1),(2,1,3),(2,1,1),(2,2,3),(2,2,1)}
 		for pt,org in enumerate(originsByPoint):
 			inLattice[pt] = False if (set([a for [a,b] in org]).intersection(removeCells)
 									  and not set([a for [a,b] in org]).intersection(borderCells)) else inLattice[pt]
@@ -1345,24 +1262,14 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 	# Define Node Parameters
 	####################################################################################################################
 
-
-	#so now I have a list of neighboring points/unitPts, strut lengths, and strut positions for which to assign a value for each joint point.
-	#need to assign the values and loop through the points making the helices.
 	sphereRadius = float(inputSphereRadius)
 	# helices = []
 	helixPtNumber = 60 #points in helix
 	curvePtNumber = 15 #points in curve
 
-
 	####################################################################################################################
 	# Set up nodes and find tangent points
 	####################################################################################################################
-
-
-
-
-
-
 
 	barAngles = [[] for _ in range(len(latticeBars))]
 	neighborsForAngles = [[] for _ in range(len(latticeBars))]
@@ -1377,12 +1284,9 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 		strutPositions = [[(latticePoints[latticePtIdx,0]+latticePoints[conn][0])/2,
 			(latticePoints[latticePtIdx,1]+latticePoints[conn][1])/2,
 			(latticePoints[latticePtIdx,2]+latticePoints[conn][2])/2] for conn in latticeConnectionsByPoint[latticePtIdx]]
-
-		# print(thisPointBars,thisPointPointIdxs)
 		strutLengths = [scipy.linalg.norm(pt) for pt in thisPointPoints]
 		ptRadii = []
 		revolutions = []
-
 
 		#now produce bars, if they don't already exist, for each bar connected to the thisPoint
 		for n in range(len(thisPointBars)):            #jbar in range(np.shape(thisPointBars)[0]):
@@ -1393,13 +1297,11 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 				bars[thisPointBars[n]].strands = np.shape(strutLengths)[0] #TODO: NO!
 			ptRadii.append(bars[thisPointBars[n]].barRadius)
 			revolutions.append(bars[thisPointBars[n]].barRevolutions)
-			# print('start and end node idxs', bars[thisPointBars[n]].nodeIdxs)
 
 
 		unitPts = np.array([point/scipy.linalg.norm(point) for point in thisPointPoints])
 
 		#now produce nodes for each node that has full connections
-
 		if inLattice[latticePtIdx]: #and len(latticeConnectionsByPoint[latticePtIdx]) == maxConnections:
 		# if len(latticeConnectionsByPoint[latticePtIdx]) == maxConnections:
 			nodes[latticePtIdx] = Node(True,latticePtIdx,unitPts,thisPointCenterPoint,thisPointBars,sphereRadius,ptRadii,
@@ -1419,17 +1321,10 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 
 
 
-	#note: assign barAngles, neighborsForAngles directly to their respective bars instead
-
-
 	####################################################################################################################
 	# Make helices
 	####################################################################################################################
 
-
-
-	#need to: identify the neighboring node index for each strand of the helix (the one corresponding to the tangent point)
-	#[bars[barIdx].neighbors1,bars[barIdx].neighbors2] = neighborsForAngles[barIdx]
 
 
 	# fig = plt.figure()
@@ -1437,7 +1332,6 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 	# ax.set_box_aspect(latticeCells)#(1,1,1))
 	# axlength = 2
 
-	#add helix start and end points to bar object
 
 	for barIdx in range(len(latticeBars)):
 		if not barAngles[barIdx]:
@@ -1452,18 +1346,13 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 			[bars[barIdx].startNode,bars[barIdx].endNode] = latticeBars[barIdx] #endpoints in index
 			[bars[barIdx].start,bars[barIdx].end] = latticeBarPoints[barIdx] #endpoints in space
 			bars[barIdx].center = (bars[barIdx].start + bars[barIdx].end)/2 #center in space
-
-			# the start and end above don't match the order of these:
 			[bars[barIdx].neighbors1,bars[barIdx].neighbors2] = neighborsForAngles[barIdx] #neighbor tangent points for each neighboring node, in space
 			[bars[barIdx].neighborAngles1,bars[barIdx].neighborAngles2]	= barAngles[barIdx] #neighbor tangent angles for each neighboring node
 			[bars[barIdx].neighborNodes1,bars[barIdx].neighborNodes2]	= barNeighborIdxs[barIdx]
-			# print('angles', barAngles[barIdx])
 			strands = np.shape(bars[barIdx].neighbors1)[0]
-			# bars[barIdx].angleDiff = np.array(np.roll(barAngles[barIdx][1],int(bars[barIdx].barRevolutions*bars[barIdx].strands))) + np.array(barAngles[barIdx][0])
 			bars[barIdx].angleDiff = np.array(
 				np.roll(barAngles[barIdx][1],int(bars[barIdx].barRevolutions*strands)))+np.array(
 				barAngles[barIdx][0])
-			# print('angle diff ', angleDiff) #
 
 			bars[barIdx].barStrutLength = scipy.spatial.distance.euclidean(bars[barIdx].start,bars[barIdx].end) - (node1.sphereRadius+node2.sphereRadius)
 
@@ -1475,35 +1364,21 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 
 			if (node1.isReal and node2.isReal and len(node1.neighborTangentList[node1.bars.index(barIdx)])>0
 					and len(node2.neighborTangentList[node2.bars.index(barIdx)])>0):
-				# print(node1.neighborTangentAngleList,node2.neighborTangentAngleList)
 				helix1,adjustedRevolutions,helixLength= makeRotatedHelices(bars[barIdx],startPoint,sampling,node1,node2)
 				bars[barIdx].barRevolutions = adjustedRevolutions
 				bars[barIdx].helixLength = helixLength
 				helix1 = np.array(helix1)
 				bars[barIdx].helix = np.array(helix1)
-				# for n in range(np.shape(helix1)[0]):
-					# ax.plot(helix1[n,:,0],helix1[n,:,1],helix1[n,:,2],color='blue',linewidth=.5)
-
 				count+=1
 
 	print(count, 'complete bars with helices')
 
 
 
-	# print([vars(nodes[it]).keys() for it in range(len(nodes)) ],'\n')  #[vars(node) for node in nodes])
-	# print([vars(bar).keys  for bar in bars])
-
-
 
 	####################################################################################################################
 	# Make joints
 	####################################################################################################################
-
-
-
-
-
-
 
 	count = 0
 	count2 = 0
@@ -1523,12 +1398,6 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 			revs = [bars[bar].barRevolutions for bar in node.bars]
 			node.path = wovenJoint(node, nodeBars, revs,sampling)
 			count+=1
-			# print(node.path[:,0,n])
-			# for pair in range(np.shape(node.path)[0]):
-				# print(node.path[:,0,pair].shape, node.path[:,1,pair].shape,node.path[:,2],pair.shape)
-				# ax.plot(node.path[:,0,pair],node.path[:,1,pair],node.path[:,2,pair],linewidth=.5,color='blue')
-				# ax.plot(node.path[pair][:,0],node.path[pair][:,1],node.path[pair][:,1],linewidth=.5,color='blue')
-
 		else:
 			count2+=1
 
@@ -1550,7 +1419,6 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 	curves = sortStrands(nodes,bars)
 	beams = []
 	if doubleNetwork:
-		#double network, checkerboard defects
 		for ind,beam in enumerate(latticeBars):
 			if inLattice[beam[0]] and inLattice[beam[1]]: #inLattice: is the point at this index in the lattice
 				p1,p2 = latticePoints[beam[0]].copy(),latticePoints[beam[1]].copy()
@@ -1559,10 +1427,8 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 				defInta = set([a[0] for a in originsByPoint[beam[0]]]).intersection(set(defectList))
 				defIntb = set([a[0] for a in originsByPoint[beam[1]]]).intersection(set(defectList))
 				origin=list(set(intArra).intersection(set(intArrb)))
-				if defInta and defInta.intersection(defIntb):#defInta == defIntb:
-					# intArra=[a[0] for a in originsByPoint[beam[0]]]
-					# intArrb=[a[0] for a in originsByPoint[beam[1]]]
-					intList = list(defInta.intersection(defIntb))[0] #list(defInta)[0]
+				if defInta and defInta.intersection(defIntb):
+					intList = list(defInta.intersection(defIntb))[0]
 					defIndexa = list([ind for ind,a in enumerate(intArra) if a==intList])[0] #which index is the point in the defective cell
 					defIndexb = list([ind for ind,a in enumerate(intArrb) if a==intList])[0]
 					if originsByPoint[beam[0]][defIndexa][1] in defectPoints:
@@ -1574,7 +1440,6 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 							dist=np.linalg.norm(ab)
 							moveVec=ab*(gap/dist)#(1-(dist-gap)/dist)
 						p1 += moveVec
-						# print(beam,ab,p2,p1)
 					if originsByPoint[beam[1]][defIndexb][1] in defectPoints:
 						if zGap:
 							ab=np.sign(latticePoints[beam[0]][2]-latticePoints[beam[1]][2])
@@ -1587,20 +1452,14 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 				pts = np.array([p1, p2])
 				curves.append(Curve(pts, beam, pts, ind, origin=origin, isBeam=True)) #path,nodes,nodePoints,bars
 
-
-
-
 	tol = .01
-	for ind,curve in enumerate(curves):
+	for ind,curve in enumerate(curves): #close closed paths
 		curve.closePath(tol)
 
 	for ind,curve in enumerate(curves): #delete repeat curves
 		for ind2,curve2 in enumerate(curves):
 			if not ind==ind2 and curve.path.any==curve2.path.any:
 				del(curves[ind2])
-
-
-
 
 	return(curves)
 
