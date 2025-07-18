@@ -953,7 +953,7 @@ def save_piped_stl(curves,rad,pts,lengthtol=[],filename='woven_mesh.stl',eccentr
 # 			mode='lines',
 # 			name=f'Curve {index}'
 # 		))
-# 
+#
 # 	fig.update_layout(
 # 		width=1000,
 # 		height=600,
