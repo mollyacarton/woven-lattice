@@ -71,7 +71,7 @@ The following packages are required to run the project:
 - **[Numpy](https://numpy.org/):** 1.22.4
 - **[Numpy-STL](https://pypi.org/project/numpy-stl/):** 3.1.1
 
-These dependencies can be installed using the provided `pip` and `npm` commands.
+These dependencies can be installed using the provided `pip` command.
 
 ## Code Structure
 
