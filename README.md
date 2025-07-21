@@ -39,7 +39,7 @@ Ensure that you have Python 3.9 or greater installed on your system. If not, dow
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/woven-lattice.git
+git clone https://github.com/mollyacarton/woven-lattice.git
 cd woven-lattice
 ```
 
