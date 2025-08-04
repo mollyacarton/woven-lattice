@@ -12,6 +12,7 @@ This repository contains the code for generating and visualizing 3D lattice stru
 - [Quick Start](#quick-start)
 - [Package Dependencies](#package-dependencies)
 - [Code Structure](#code-structure)
+- [Demo](#demo)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -57,7 +58,6 @@ If the `requirements.txt` file is not present, you can manually install the depe
 pip install scipy==1.13.1 matplotlib==3.4.3 numpy==1.22.4 numpy-stl==3.1.1 
 ```
 
-
 ## Quick start
 
 To start with the code, clone this repository and run lattice_main.py.
@@ -71,7 +71,7 @@ The following packages are required to run the project:
 - **[Numpy](https://numpy.org/):** 1.22.4
 - **[Numpy-STL](https://pypi.org/project/numpy-stl/):** 3.1.1
 
-These dependencies can be installed using the provided `pip` command.
+These dependencies can be installed using the provided `pip` command. Installation should take no more than 5 minutes with a good connection. 
 
 ## Code Structure
 
@@ -80,6 +80,11 @@ Here is an overview of the project's code structure:
 - **lattice_main.py**: Main script for generating lattice structures.
 - **makeunitcell_func1.py**: Contains functions for creating unit cells and handling geometric calculations.
 
+## Demo
+
+To run the demo, run `woven_lattice.py` with the provided initial parameters. The demo will plot an interactive graphic of a 3x2x1 diamond woven lattice; in the working directory, it will save 1) a single .csv file, `wovenCSV_[date].csv` in a structured format containing all lattice curves; 2) a directory, `wovenCSV_[date]` containing each lattice curve in a separate .csv file; 3) an .stl 3D file, `woven_mesh.stl` of the woven lattice.  
+
+This demo should take no more than 30 seconds to run on a desktop computer. 
 
 ## Contributing
 

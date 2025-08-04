@@ -29,5 +29,7 @@ muc.exportCSV(curves,cellNum,unitCell/2,doubleNetwork=doubleNetworkFlag,trim=tri
 muc.exportOneCSV(curves,cellNum,unitCell/2)
 muc.save_piped_stl(curves,1,10,filename='woven_mesh.stl',eccentricity=1) #fiber radius, number of points in circular cross-section
 
+
+
 quit()
 

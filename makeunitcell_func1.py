@@ -1401,7 +1401,7 @@ def wovenLattice(latName,L,strutParams,sampling,latticeCells=[1,1,1],doubleNetwo
 		else:
 			count2+=1
 
-	print(count, 'complete nodes, ', count2, 'incomplete nodes, ', count3, 'incomplete bar nodes, ', count+count2+count3, 'total nodes?')
+	print(count, 'complete nodes, ', count2, 'incomplete nodes, ', count3, 'incomplete bar nodes, ', count+count2+count3, 'total nodes')
 
 
 
