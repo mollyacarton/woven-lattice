@@ -37,6 +37,8 @@ Ensure that you have Python 3.9 or greater installed on your system. If not, dow
 
 - [Python](https://www.python.org/downloads/)
 
+This software has been tested on MacOS 12 and Windows 11.
+
 ### Clone the Repository
 
 ```bash
