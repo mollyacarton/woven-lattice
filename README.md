@@ -2,7 +2,7 @@
 
 Molly Carton, Jiayi Wu
 
-This repository contains the code for generating and visualizing 3D lattice structures as found in `Design framework for programmable three-dimensional woven metamaterials' (Molly Carton, James Utama Surjadi, Bastien F. G. Aymon, Carlos M. Portela., 2025). The project aims to create complex woven lattice geometries, export them as STL and CSV files, and visualize them interactively.
+This repository contains the code for generating and visualizing 3D lattice structures as found in `Design framework for programmable three-dimensional woven metamaterials' (Molly Carton, James Utama Surjadi, Bastien F. G. Aymon, Ling Xu, Carlos M. Portela., 2025). The project aims to create complex woven lattice geometries, export them as STL and CSV files, and visualize them interactively.
 
 ## Table of Contents
 
